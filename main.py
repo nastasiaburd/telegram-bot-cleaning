@@ -147,4 +147,4 @@ async def webhook(request):
 
 # Запускаем бота с опросом (для локального теста, на Render уберём)
 if __name__ == "__main__":
-    application.run_polling()
+   # application.run_polling()
