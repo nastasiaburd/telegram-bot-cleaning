@@ -1,12 +1,12 @@
 import os
 import logging
+import asyncio
 from flask import Flask, request
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler, ContextTypes
 
 # --- Логирование ---
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # --- Flask ---
 app = Flask(__name__)
@@ -43,7 +43,7 @@ application = Application.builder().token(TOKEN).build()
 
 # --- Функции бота ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logger.info(f"/start от {update.effective_user.id}")
+    logging.info(f"Команда /start от {update.effective_user.id}")
     await update.message.reply_text("Привет! Введите Фамилию и Имя:")
     return NAME
 
@@ -115,7 +115,6 @@ async def end(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await context.bot.send_message(chat_id=CHANNEL, text=message)
     except Exception as e:
-        logger.exception("Ошибка при отправке отчета")
         await update.message.reply_text(f"Ошибка при отправке отчета: {str(e)}. Попробуйте позже.")
         return ConversationHandler.END
 
@@ -144,16 +143,13 @@ conv_handler = ConversationHandler(
 )
 application.add_handler(conv_handler)
 
-# --- Webhook для Render ---
+# --- Webhook для Render (синхронный) ---
 @app.route(f"/{TOKEN}", methods=["POST"])
-async def webhook():
+def webhook():
     data = request.get_json(force=True)
-    logger.info(f"Получено обновление: {data}")
+    logging.info(f"Получено обновление: {data}")  # логирование
     update = Update.de_json(data, application.bot)
-    try:
-        await application.process_update(update)
-    except Exception as e:
-        logger.exception("Ошибка при обработке обновления")
+    asyncio.run(application.process_update(update))
     return "ok", 200
 
 @app.route("/")
