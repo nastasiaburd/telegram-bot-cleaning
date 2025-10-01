@@ -1,6 +1,6 @@
 import os
 from flask import Flask, request
-from telegram import Update, Bot, ReplyKeyboardMarkup
+from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler, ContextTypes
 
 # --- Flask ---
@@ -24,7 +24,10 @@ questions = [
 
 yes_no_keyboard = ReplyKeyboardMarkup([["Да", "Нет"]], one_time_keyboard=True)
 breakage_keyboard = ReplyKeyboardMarkup([["Да", "Нет"]], one_time_keyboard=True)
-apartment_keyboard = ReplyKeyboardMarkup([apartments[i:i+3] for i in range(0, len(apartments), 3)], one_time_keyboard=True)
+apartment_keyboard = ReplyKeyboardMarkup(
+    [apartments[i:i+3] for i in range(0, len(apartments), 3)],
+    one_time_keyboard=True
+)
 
 TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL = os.environ.get("CHANNEL_ID")
@@ -136,16 +139,17 @@ application.add_handler(conv_handler)
 # --- Webhook для Render ---
 @app.route(f"/{TOKEN}", methods=["POST"])
 async def webhook():
-    from flask import request
-    update = Update.de_json(request.get_json(), application.bot)
-    await application.process_update(update)
-    return "", 200
+    data = request.get_json(force=True)
+    update = Update.de_json(data, application.bot)
+    await application.update_queue.put(update)
+    return "ok", 200
 
-# --- Запуск бота локально через polling ---
+@app.route("/")
+def index():
+    return "🤖 Бот работает через Render!", 200
+
+# --- Запуск ---
 if __name__ == "__main__":
-    if os.environ.get("RENDER") != "true":
-        # Локальный тест
-        application.run_polling()
-    else:
-        # На Render бот работает через вебхуки
-        pass
+    # Render запускает Flask, а не polling
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+
