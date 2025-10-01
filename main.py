@@ -1,16 +1,14 @@
 import os
 import logging
+from flask import Flask, request
 from telegram import Update, ReplyKeyboardMarkup
-from telegram.ext import (
-    Application, CommandHandler, MessageHandler, filters,
-    ConversationHandler, ContextTypes
-)
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler, ContextTypes
 
 # --- Логирование ---
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO
-)
+logging.basicConfig(level=logging.INFO)
+
+# --- Flask ---
+app = Flask(_name_)
 
 # --- Этапы разговора ---
 NAME, APARTMENT, QUESTIONS, BREAKAGE, BREAKAGE_PHOTO, BREAKAGE_DESC, END = range(7)
@@ -38,7 +36,9 @@ apartment_keyboard = ReplyKeyboardMarkup(
 # --- Токен и канал ---
 TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL = os.environ.get("CHANNEL_ID")
-PORT = int(os.environ.get("PORT", 5000))
+
+# --- Telegram Application ---
+application = Application.builder().token(TOKEN).build()
 
 # --- Функции бота ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -140,17 +140,21 @@ conv_handler = ConversationHandler(
     },
     fallbacks=[CommandHandler("cancel", cancel)]
 )
-
-# --- Telegram Application ---
-application = Application.builder().token(TOKEN).build()
 application.add_handler(conv_handler)
 
-# --- Запуск вебхука на Render ---
-if __name__ == "__main__":
-    application.run_webhook(
-        listen="0.0.0.0",
-        port=PORT,
-        url_path=TOKEN,
-        webhook_url=f"https://YOUR-RENDER-APP.onrender.com/{TOKEN}"
-    )
+# --- Webhook для Render с логированием ---
+@app.route(f"/{TOKEN}", methods=["POST"])
+async def webhook():
+    data = request.get_json(force=True)
+    logging.info(f"Получено обновление: {data}")  # <-- важное для проверки
+    update = Update.de_json(data, application.bot)
+    await application.update_queue.put(update)
+    return "ok", 200
 
+@app.route("/")
+def index():
+    return "🤖 Бот работает через Render!", 200
+
+# --- Запуск Flask ---
+if _name_ == "_main_":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
