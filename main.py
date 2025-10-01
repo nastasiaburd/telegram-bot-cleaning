@@ -1,7 +1,7 @@
 import os
 import logging
 from flask import Flask, request
-from telegram import Update, ReplyKeyboardMarkup
+from telegram import Update, ReplyKeyboardMarkup, Bot
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler, ContextTypes
 
 # --- Логирование ---
@@ -36,6 +36,7 @@ apartment_keyboard = ReplyKeyboardMarkup(
 # --- Токен и канал ---
 TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL = os.environ.get("CHANNEL_ID")
+RENDER_URL = os.environ.get("RENDER_URL")  # Например: https://твое-приложение.onrender.com
 
 # --- Telegram Application ---
 application = Application.builder().token(TOKEN).build()
@@ -142,11 +143,11 @@ conv_handler = ConversationHandler(
 )
 application.add_handler(conv_handler)
 
-# --- Webhook для Render с логированием ---
+# --- Webhook с логированием ---
 @app.route(f"/{TOKEN}", methods=["POST"])
 async def webhook():
     data = request.get_json(force=True)
-    logging.info(f"Получено обновление: {data}")  # <-- важное для проверки
+    logging.info(f"Получено обновление: {data}")
     update = Update.de_json(data, application.bot)
     await application.update_queue.put(update)
     return "ok", 200
@@ -155,6 +156,15 @@ async def webhook():
 def index():
     return "🤖 Бот работает через Render!", 200
 
+# --- Установка вебхука при старте ---
+def set_webhook():
+    bot = Bot(token=TOKEN)
+    url = f"{RENDER_URL}/{TOKEN}"
+    logging.info(f"Устанавливаем вебхук: {url}")
+    bot.set_webhook(url)
+    logging.info("Вебхук установлен!")
+
 # --- Запуск Flask ---
 if __name__ == "__main__":
+    set_webhook()  # <-- вебхук ставится один раз при старте
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
