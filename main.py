@@ -1,12 +1,17 @@
 import os
 import logging
-import asyncio
 from flask import Flask, request
 from telegram import Update, ReplyKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler, ContextTypes
+from telegram.ext import (
+    Application, CommandHandler, MessageHandler, filters,
+    ConversationHandler, ContextTypes
+)
 
 # --- Логирование ---
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO
+)
 
 # --- Flask ---
 app = Flask(__name__)
@@ -40,6 +45,7 @@ CHANNEL = os.environ.get("CHANNEL_ID")
 
 # --- Telegram Application ---
 application = Application.builder().token(TOKEN).build()
+application.initialize()  # ВАЖНО для вебхуков!
 
 # --- Функции бота ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -143,13 +149,13 @@ conv_handler = ConversationHandler(
 )
 application.add_handler(conv_handler)
 
-# --- Webhook для Render (синхронный) ---
+# --- Вебхук для Render с логированием ---
 @app.route(f"/{TOKEN}", methods=["POST"])
-def webhook():
+async def webhook():
     data = request.get_json(force=True)
-    logging.info(f"Получено обновление: {data}")  # логирование
+    logging.info(f"Получено обновление: {data}")
     update = Update.de_json(data, application.bot)
-    asyncio.run(application.process_update(update))
+    await application.update_queue.put(update)  # помещаем в очередь
     return "ok", 200
 
 @app.route("/")
