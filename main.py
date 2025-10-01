@@ -3,40 +3,36 @@ from flask import Flask, request
 from telegram import Update, Bot, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler, ContextTypes
 
-# Создаём приложение Flask
+# --- Flask ---
 app = Flask(__name__)
 
-# Этапы разговора с ботом
+# --- Этапы разговора ---
 NAME, APARTMENT, QUESTIONS, BREAKAGE, BREAKAGE_PHOTO, BREAKAGE_DESC, END = range(7)
 
-# Список квартир
+# --- Данные ---
 apartments = [
     "9к3-27", "9к3-28", "9к3-29", "9к3-78", "13-51", "11с1-347", "5.-4",
     "42-1", "42-52", "42-105", "42-144", "3-174", "3-334", "3-852",
     "69к5-138", "7к1-348", "73к5-751", "73к5-752"
 ]
 
-# Вопросы для проверки
 questions = [
     "Протерли пыль на подоконниках?",
     "Пропарили белье?",
     "Поменяли водичку в ершиках?"
 ]
 
-# Кнопки для ответов
 yes_no_keyboard = ReplyKeyboardMarkup([["Да", "Нет"]], one_time_keyboard=True)
 breakage_keyboard = ReplyKeyboardMarkup([["Да", "Нет"]], one_time_keyboard=True)
 apartment_keyboard = ReplyKeyboardMarkup([apartments[i:i+3] for i in range(0, len(apartments), 3)], one_time_keyboard=True)
 
-# Берем токен и канал из настроек
 TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL = os.environ.get("CHANNEL_ID")
 
-# Создаём приложение
+# --- Telegram ---
 application = Application.builder().token(TOKEN).build()
 
-# --- Функции для работы бота ---
-
+# --- Функции бота ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Привет! Введите Фамилию и Имя:")
     return NAME
@@ -119,7 +115,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Операция отменена.")
     return ConversationHandler.END
 
-# Настраиваем, как бот будет общаться
+# --- Conversation Handler ---
 conv_handler = ConversationHandler(
     entry_points=[CommandHandler("start", start)],
     states={
@@ -135,20 +131,21 @@ conv_handler = ConversationHandler(
     },
     fallbacks=[CommandHandler("cancel", cancel)]
 )
-
 application.add_handler(conv_handler)
 
-# Настраиваем вебхук
-@app.route(f'/{TOKEN}', methods=['POST'])
-async def webhook(request):
+# --- Webhook для Render ---
+@app.route(f"/{TOKEN}", methods=["POST"])
+async def webhook():
+    from flask import request
     update = Update.de_json(request.get_json(), application.bot)
     await application.process_update(update)
-    return '', 200
+    return "", 200
 
-# Запускаем бота с опросом (для локального теста, на Render уберём)
+# --- Запуск бота локально через polling ---
 if __name__ == "__main__":
     if os.environ.get("RENDER") != "true":
-        application.run_polling()  # запуск локально
+        # Локальный тест
+        application.run_polling()
     else:
-        pass  # на Render бот через вебхуки
-
+        # На Render бот работает через вебхуки
+        pass
