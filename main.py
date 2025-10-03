@@ -1,10 +1,7 @@
 import os
-from flask import Flask, request
+import asyncio
 from telegram import Update, Bot, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler, ContextTypes
-
-# Создаём приложение Flask
-app = Flask(__name__)
 
 # Этапы разговора с ботом
 NAME, APARTMENT, QUESTIONS, BREAKAGE, BREAKAGE_PHOTO, BREAKAGE_DESC, END = range(7)
@@ -31,6 +28,9 @@ apartment_keyboard = ReplyKeyboardMarkup([apartments[i:i+3] for i in range(0, le
 # Берем токен и канал из настроек
 TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL = os.environ.get("CHANNEL_ID")
+
+if not TOKEN:
+    raise ValueError("Переменная окружения BOT_TOKEN обязательна.")
 
 # Создаём приложение
 application = Application.builder().token(TOKEN).build()
@@ -138,13 +138,19 @@ conv_handler = ConversationHandler(
 
 application.add_handler(conv_handler)
 
-# Настраиваем вебхук
-@app.route(f'/{TOKEN}', methods=['POST'])
-async def webhook(request):
-    update = Update.de_json(request.get_json(), application.bot)
-    await application.process_update(update)
-    return '', 200
-
-# Запускаем бота с опросом (для локального теста, на Render уберём)
+# --- Запуск вебхука ---
 if __name__ == "__main__":
-    pass # пустой блок 
+    # Укажите ваш Render URL здесь (замените на реальный, например, https://your-bot.onrender.com)
+    WEBHOOK_HOST = os.environ.get("WEBHOOK_HOST", "https://your-bot.onrender.com")  # Добавьте в env vars Render
+    webhook_url = f"{WEBHOOK_HOST}/{TOKEN}"
+    
+    # Устанавливаем webhook (если уже установлен, Telegram проигнорирует)
+    application.bot.set_webhook(webhook_url)
+    
+    # Запускаем встроенный webhook сервер
+    application.run_webhook(
+        listen="0.0.0.0",
+        port=int(os.environ.get("PORT", 10000)),  # Render использует $PORT, fallback 10000
+        url_path=TOKEN,
+        webhook_url=webhook_url
+    )
