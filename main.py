@@ -1,48 +1,43 @@
 import os
-import logging
 from flask import Flask, request
-from telegram import Update, ReplyKeyboardMarkup
+from telegram import Update, Bot, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler, ContextTypes
 
-# --- Логирование ---
-logging.basicConfig(level=logging.INFO)
+# Создаём приложение Flask
+app = Flask(__name__)
 
-# --- Flask ---
-app = Flask(_name_)
-
-# --- Этапы разговора ---
+# Этапы разговора с ботом
 NAME, APARTMENT, QUESTIONS, BREAKAGE, BREAKAGE_PHOTO, BREAKAGE_DESC, END = range(7)
 
-# --- Данные ---
+# Список квартир
 apartments = [
     "9к3-27", "9к3-28", "9к3-29", "9к3-78", "13-51", "11с1-347", "5.-4",
     "42-1", "42-52", "42-105", "42-144", "3-174", "3-334", "3-852",
     "69к5-138", "7к1-348", "73к5-751", "73к5-752"
 ]
 
+# Вопросы для проверки
 questions = [
     "Протерли пыль на подоконниках?",
     "Пропарили белье?",
     "Поменяли водичку в ершиках?"
 ]
 
+# Кнопки для ответов
 yes_no_keyboard = ReplyKeyboardMarkup([["Да", "Нет"]], one_time_keyboard=True)
 breakage_keyboard = ReplyKeyboardMarkup([["Да", "Нет"]], one_time_keyboard=True)
-apartment_keyboard = ReplyKeyboardMarkup(
-    [apartments[i:i+3] for i in range(0, len(apartments), 3)],
-    one_time_keyboard=True
-)
+apartment_keyboard = ReplyKeyboardMarkup([apartments[i:i+3] for i in range(0, len(apartments), 3)], one_time_keyboard=True)
 
-# --- Токен и канал ---
+# Берем токен и канал из настроек
 TOKEN = os.environ.get("BOT_TOKEN")
 CHANNEL = os.environ.get("CHANNEL_ID")
 
-# --- Telegram Application ---
+# Создаём приложение
 application = Application.builder().token(TOKEN).build()
 
-# --- Функции бота ---
+# --- Функции для работы бота ---
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logging.info(f"Команда /start от {update.effective_user.id}")
     await update.message.reply_text("Привет! Введите Фамилию и Имя:")
     return NAME
 
@@ -124,7 +119,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Операция отменена.")
     return ConversationHandler.END
 
-# --- Conversation Handler ---
+# Настраиваем, как бот будет общаться
 conv_handler = ConversationHandler(
     entry_points=[CommandHandler("start", start)],
     states={
@@ -140,21 +135,16 @@ conv_handler = ConversationHandler(
     },
     fallbacks=[CommandHandler("cancel", cancel)]
 )
+
 application.add_handler(conv_handler)
 
-# --- Webhook для Render с логированием ---
-@app.route(f"/{TOKEN}", methods=["POST"])
-async def webhook():
-    data = request.get_json(force=True)
-    logging.info(f"Получено обновление: {data}")  # <-- важное для проверки
-    update = Update.de_json(data, application.bot)
-    await application.update_queue.put(update)
-    return "ok", 200
+# Настраиваем вебхук
+@app.route(f'/{TOKEN}', methods=['POST'])
+async def webhook(request):
+    update = Update.de_json(request.get_json(), application.bot)
+    await application.process_update(update)
+    return '', 200
 
-@app.route("/")
-def index():
-    return "🤖 Бот работает через Render!", 200
-
-# --- Запуск Flask ---
-if _name_ == "_main_":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+# Запускаем бота с опросом (для локального теста, на Render уберём)
+if __name__ == "__main__":
+    pass # пустой блок 
