@@ -1,6 +1,6 @@
 import os
 import asyncio
-from telegram import Update, ReplyKeyboardMarkup
+from telegram import Update, Bot, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ConversationHandler, ContextTypes
 
 # Этапы разговора с ботом
@@ -31,8 +31,6 @@ CHANNEL = os.environ.get("CHANNEL_ID")
 
 if not TOKEN:
     raise ValueError("Переменная окружения BOT_TOKEN обязательна.")
-if not CHANNEL:
-    raise ValueError("Переменная окружения CHANNEL_ID обязательна.")
 
 # Создаём приложение
 application = Application.builder().token(TOKEN).build()
@@ -141,23 +139,18 @@ conv_handler = ConversationHandler(
 application.add_handler(conv_handler)
 
 # --- Запуск вебхука ---
-async def main():
+if __name__ == "__main__":
     # Укажите ваш Render URL здесь (замените на реальный, например, https://your-bot.onrender.com)
     WEBHOOK_HOST = os.environ.get("WEBHOOK_HOST", "https://your-bot.onrender.com")  # Добавьте в env vars Render
     webhook_url = f"{WEBHOOK_HOST}/{TOKEN}"
     
-    # Устанавливаем webhook (теперь с await!)
-    await application.bot.set_webhook(webhook_url)
-    print(f"Webhook установлен: {webhook_url}")  # Для логов
+    # Устанавливаем webhook (если уже установлен, Telegram проигнорирует)
+    application.bot.set_webhook(webhook_url)
     
     # Запускаем встроенный webhook сервер
-    await application.run_webhook(
+    application.run_webhook(
         listen="0.0.0.0",
         port=int(os.environ.get("PORT", 10000)),  # Render использует $PORT, fallback 10000
         url_path=TOKEN,
-        webhook_url=webhook_url,
-        drop_pending_updates=True  # Игнорируем старые обновления
+        webhook_url=webhook_url
     )
-
-if __name__ == "__main__":
-    asyncio.run(main())
